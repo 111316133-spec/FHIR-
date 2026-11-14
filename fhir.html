@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FHIR 藥品物流配送模擬系統 (HL7 FHIR R4 Logistics)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    }
+    pre, code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom scrollbar for JSON viewer and timeline */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    @keyframes pulse-highlight {
+      0%, 100% { background-color: rgba(250, 204, 21, 0.25); }
+      50% { background-color: rgba(250, 204, 21, 0.55); }
+    }
+    .json-changed-line {
+      animation: pulse-highlight 2s ease-in-out infinite;
+      border-left: 3px solid #eab308;
+      padding-left: 6px;
+      margin-left: -9px;
+      display: inline-block;
+      width: calc(100% + 9px);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Top Navigation Bar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-md shadow-teal-600/20 shrink-0">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight">FHIR 藥品物流配送模擬系統</h1>
+            <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200">HL7 FHIR R4</span>
+          </div>
+          <p class="text-xs text-slate-500 hidden sm:block">SupplyRequest ➔ Task 狀態機 ➔ SupplyDelivery ➔ Communication & Billing</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button onclick="openStaffModal()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer">
+          <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+          <span class="hidden md:inline">物流人員註冊審核</span>
+          <span class="md:hidden">人員審核</span>
+        </button>
+
+        <button onclick="downloadBundle()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span class="hidden sm:inline">匯出 Bundle</span>
+        </button>
+
+        <button onclick="resetSimulation()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <span>重置模擬</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Stepper Progress Bar -->
+    <section class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
+        <div>
+          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">FHIR 藥品配送狀態機進度 (Workflow State Machine)</h2>
+          <p class="text-sm text-slate-600 mt-0.5">點擊下方角色操作面板依序推進，或切換角色視角檢視對應作業畫面</p>
+        </div>
+        <div id="current-status-badge" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 self-start sm:self-auto">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          目前階段：步驟 0 - 藥局已打包待派單
+        </div>
+      </div>
+
+      <!-- Horizontal Stepper -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3" id="stepper-grid">
+        <!-- Populated via JS -->
+      </div>
+    </section>
+
+    <!-- Role Perspective Switcher Tabs -->
+    <section class="bg-white rounded-2xl border border-slate-200 p-2 shadow-sm flex flex-wrap gap-1.5" id="role-tabs">
+      <button onclick="setRoleView('all')" data-role="all" class="role-tab flex-1 min-w-[130px] flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer bg-teal-600 text-white shadow-sm">
+        <span>🌐 全景整合視角</span>
+      </button>
+      <button onclick="setRoleView('pharmacist')" data-role="pharmacist" class="role-tab flex-1 min-w-[130px] flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer text-slate-600 hover:bg-slate-100">
+        <span>💊 醫院藥師 (林醫師)</span>
+      </button>
+      <button onclick="setRoleView('dispatcher')" data-role="dispatcher" class="role-tab flex-1 min-w-[130px] flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer text-slate-600 hover:bg-slate-100">
+        <span>📋 物流管理員</span>
+      </button>
+      <button onclick="setRoleView('courier')" data-role="courier" class="role-tab flex-1 min-w-[130px] flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer text-slate-600 hover:bg-slate-100">
+        <span>🚚 物流員 (林大雄)</span>
+      </button>
+      <button onclick="setRoleView('patient')" data-role="patient" class="role-tab flex-1 min-w-[130px] flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer text-slate-600 hover:bg-slate-100">
+        <span>👵 社區據點 / 陳阿姨</span>
+      </button>
+    </section>
+
+    <!-- Main Workspace Grid: Left (Operations & Mobile Preview) / Right (Live FHIR JSON Viewer & Timeline) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- Left Column: Interactive Role Console + Patient Phone Preview (5 cols on lg) -->
+      <div class="lg:col-span-5 space-y-6">
+
+        <!-- Active Stage Action Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-4 text-white flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <span id="console-role-icon" class="text-xl">📋</span>
+              <div>
+                <h3 id="console-title" class="font-bold text-sm sm:text-base">角色作業控制台</h3>
+                <p id="console-subtitle" class="text-xs text-slate-300">請依據目前配送狀態執行對應操作</p>
+              </div>
+            </div>
+            <span id="step-badge" class="px-2.5 py-1 rounded-lg bg-white/10 text-xs font-mono font-semibold">Step 0/5</span>
+          </div>
+
+          <div class="p-5 space-y-4" id="action-console-body">
+            <!-- Dynamically rendered based on current step and role filter -->
+          </div>
+        </div>
+
+        <!-- Scenario Participants & Context Card -->
+        <div id="context-card" class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            本案 FHIR 實體關聯拓撲 (Scenario Entities)
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+              <span class="text-slate-400 block">收件病人 (Patient)</span>
+              <span class="font-semibold text-slate-800">陳阿姨 (Patient/chen)</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+              <span class="text-slate-400 block">目的地 (Location)</span>
+              <span class="font-semibold text-slate-800">社區據點 A (Location/community-001)</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+              <span class="text-slate-400 block">開立藥師 / 醫師</span>
+              <span class="font-semibold text-slate-800">林醫師 (dr-lin) / 張醫師 (dr-chang)</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+              <span class="text-slate-400 block">指派物流員 (Practitioner)</span>
+              <span id="assigned-courier-display" class="font-semibold text-teal-700">林大雄 (Practitioner/mr-lin)</span>
+            </div>
+          </div>
+          <div class="p-3 rounded-xl bg-sky-50/70 border border-sky-200/80 text-xs flex items-start gap-2.5">
+            <span class="text-base">❄️</span>
+            <div>
+              <span class="font-bold text-sky-900">冷鏈溫控配送要求：</span>
+              <span class="text-sky-800">胰島素注射液 (Insulin Glargine 100U/mL) × 2 盒，批號 <code class="font-mono bg-white px-1 rounded border border-sky-200">LOT20250913</code>，需維持 2°C ~ 8°C 冷藏配送。</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Patient Mobile App / LINE Push Notification Simulator -->
+        <div class="bg-slate-900 rounded-3xl p-3.5 shadow-lg border-4 border-slate-800">
+          <div class="bg-[#8cabd9] rounded-2xl overflow-hidden flex flex-col h-[340px]">
+            <!-- Phone Header -->
+            <div class="bg-[#242d3c] text-white px-4 py-2.5 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-full bg-teal-500 flex items-center justify-center font-bold text-white">藥</div>
+                <div>
+                  <div class="font-bold leading-tight">智慧醫院藥事物流通知</div>
+                  <div class="text-[10px] text-emerald-400 flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> 陳阿姨的手機端 (FHIR Communication)
+                  </div>
+                </div>
+              </div>
+              <span id="comm-count-badge" class="bg-white/15 px-2 py-0.5 rounded-full text-[11px] font-mono">0 則訊息</span>
+            </div>
+
+            <!-- Chat Messages Stream -->
+            <div id="patient-chat-stream" class="flex-1 p-3.5 overflow-y-auto space-y-3">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Live FHIR Resource JSON Viewer & Audit Timeline (7 cols on lg) -->
+      <div class="lg:col-span-7 space-y-6">
+
+        <!-- FHIR JSON Inspector Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <!-- Resource Selector Tabs -->
+          <div class="border-b border-slate-200 bg-slate-50/80 px-4 pt-3 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap gap-1" id="resource-tabs">
+              <button onclick="selectResourceTab('SupplyRequest')" data-res="SupplyRequest" class="res-tab px-3 py-2 rounded-t-xl text-xs font-semibold border-b-2 border-teal-600 text-teal-700 bg-white transition cursor-pointer">
+                SupplyRequest
+              </button>
+              <button onclick="selectResourceTab('Task')" data-res="Task" class="res-tab px-3 py-2 rounded-t-xl text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition cursor-pointer">
+                Task <span id="tab-badge-Task" class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-600">未建立</span>
+              </button>
+              <button onclick="selectResourceTab('SupplyDelivery')" data-res="SupplyDelivery" class="res-tab px-3 py-2 rounded-t-xl text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition cursor-pointer">
+                SupplyDelivery <span id="tab-badge-SupplyDelivery" class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-600">未建立</span>
+              </button>
+              <button onclick="selectResourceTab('Communication')" data-res="Communication" class="res-tab px-3 py-2 rounded-t-xl text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition cursor-pointer">
+                Communication <span id="tab-badge-Communication" class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-600">0</span>
+              </button>
+              <button onclick="selectResourceTab('Billing')" data-res="Billing" class="res-tab px-3 py-2 rounded-t-xl text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition cursor-pointer">
+                ChargeItem / Invoice / Payment
+              </button>
+            </div>
+
+            <div class="pb-2 flex items-center gap-2">
+              <button onclick="copyCurrentJson()" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs transition cursor-pointer">
+                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                複製 JSON
+              </button>
+            </div>
+          </div>
+
+          <!-- Resource Metadata Bar -->
+          <div class="bg-slate-900 text-slate-300 px-4 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2 border-b border-slate-800">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+              <span id="json-viewer-endpoint" class="font-mono text-emerald-300">GET /fhir/SupplyRequest/supply-001</span>
+            </div>
+            <div class="flex items-center gap-2 text-[11px] text-amber-300">
+              <span class="inline-block w-2 h-2 bg-amber-400 rounded-xs"></span>
+              <span>黃色高亮標示為本階段新增或異動之 FHIR 欄位</span>
+            </div>
+          </div>
+
+          <!-- JSON Code Display -->
+          <div class="bg-[#0f172a] text-slate-100 p-4 overflow-x-auto max-h-[480px] overflow-y-auto text-xs sm:text-[13px] leading-relaxed">
+            <pre id="json-code-output" class="font-mono"></pre>
+          </div>
+        </div>
+
+        <!-- Event Audit Log & State Transition History -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              FHIR 資源狀態變更時間軸 (Audit & State Transitions)
+            </h3>
+            <span class="text-xs text-slate-400">即時記錄每次 API 觸發</span>
+          </div>
+          <div id="audit-timeline" class="space-y-3 max-h-[260px] overflow-y-auto pr-1">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Staff Registration & Verification Modal -->
+  <div id="staff-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 max-w-2xl w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-base">物流人員註冊審核 (Practitioner & PractitionerRole)</h3>
+          <p class="text-xs text-slate-300">審核新進物流員資格並自動產生對應之 FHIR 醫事/物流人員資源</p>
+        </div>
+        <button onclick="closeStaffModal()" class="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+        <!-- New Courier Form -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">物流員姓名</label>
+            <input id="new-courier-name" type="text" value="陳志明" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">員工 / 證照編號</label>
+            <input id="new-courier-id" type="text" value="courier-chen" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">冷鏈配送資格</label>
+            <select id="new-courier-qual" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+              <option value="GDP-COLD-CHAIN">GDP 冷鏈物流認證 (2~8°C)</option>
+              <option value="GENERAL-MED">一般常溫藥品配送認證</option>
+            </select>
+          </div>
+          <div class="sm:col-span-3 flex justify-end">
+            <button onclick="approveNewCourier()" class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition cursor-pointer">
+              ✓ 審核通過並產生 Practitioner + PractitionerRole
+            </button>
+          </div>
+        </div>
+
+        <!-- Registered Couriers List -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">已通過審核之合格物流人員清單</h4>
+          <div id="courier-list" class="space-y-2"></div>
+        </div>
+
+        <!-- Latest Generated Practitioner & PractitionerRole JSON -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-bold text-slate-700">最新產生之 FHIR Practitioner & PractitionerRole Bundle</span>
+            <button onclick="copyStaffJson()" class="text-xs text-teal-600 hover:text-teal-800 font-semibold cursor-pointer">複製 JSON</button>
+          </div>
+          <pre id="staff-json-preview" class="bg-slate-900 text-emerald-300 p-3.5 rounded-xl text-xs font-mono overflow-x-auto max-h-52"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. STATE & FHIR DATA MODELS (Strictly aligned with HackMD Specification)
+    // =========================================================================
+
+    function getTimestamp(offsetMinutes = 0) {
+      const d = new Date(Date.now() + offsetMinutes * 60000);
+      // Format as ISO string with +08:00 timezone offset for Taiwan healthcare accuracy
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}+08:00`;
+    }
+
+    const STEP_DEFINITIONS = [
+      { step: 0, title: "處方審核打包", role: "藥師林醫師", short: "SupplyRequest 建立" },
+      { step: 1, title: "物流指派任務", role: "物流管理員", short: "Task (requested)" },
+      { step: 2, title: "物流員接單", role: "林大雄", short: "Task (accepted)" },
+      { step: 3, title: "取貨配送中", role: "林大雄", short: "Task (in-progress)" },
+      { step: 4, title: "送達社區據點", role: "林大雄", short: "SupplyDelivery 完成" },
+      { step: 5, title: "領藥與結帳", role: "陳阿姨 / 據點", short: "簽收 & PaymentNotice" }
+    ];
+
+    let appState = {};
+
+    function initInitialState() {
+      const t0 = getTimestamp(-15);
+      appState = {
+        currentStep: 0,
+        roleView: 'all',
+        activeResourceTab: 'SupplyRequest',
+        changedKeys: ['id', 'status', 'authoredOn', 'itemCodeableConcept'],
+        selectedCourierId: 'mr-lin',
+        couriers: [
+          {
+            id: 'mr-lin',
+            name: '林大雄',
+            identifier: 'LOG-2025-001',
+            qualification: 'GDP-COLD-CHAIN',
+            qualificationDisplay: 'GDP 冷鏈物流認證 (2~8°C)',
+            active: true
+          }
+        ],
+        resources: {
+          SupplyRequest: {
+            resourceType: "SupplyRequest",
+            id: "supply-001",
+            meta: {
+              profile: ["http://hl7.org/fhir/StructureDefinition/SupplyRequest"]
+            },
+            status: "active",
+            category: {
+              coding: [{
+                system: "http://terminology.hl7.org/CodeSystem/supply-kind",
+                code: "central",
+                display: "中央藥局調劑配送"
+              }]
+            },
+            priority: "urgent",
+            itemCodeableConcept: {
+              coding: [{
+                system: "http://www.whocc.no/atc",
+                code: "A10AE04",
+                display: "Insulin Glargine 100U/mL 注射液 (需 2~8°C 冷藏)"
+              }],
+              text: "胰島素注射液 (批號 LOT20250913，需冷藏)"
+            },
+            quantity: {
+              value: 2,
+              unit: "盒",
+              system: "http://unitsofmeasure.org",
+              code: "{box}"
+            },
+            parameter: [
+              {
+                code: { text: "溫控條件" },
+                valueCodeableConcept: { text: "2°C - 8°C 全程冷鏈保存" }
+              },
+              {
+                code: { text: "藥品批號" },
+                valueString: "LOT20250913"
+              }
+            ],
+            occurrenceDateTime: getTimestamp(60),
+            authoredOn: t0,
+            requester: {
+              reference: "Practitioner/dr-lin",
+              display: "林醫師 (醫院藥劑部藥師)"
+            },
+            supplier: [
+              {
+                reference: "Organization/hospital-pharmacy",
+                display: "仁愛綜合醫院藥局"
+              }
+            ],
+            reasonCode: [{
+              text: "慢性病連續處方箋居家/社區送藥服務"
+            }],
+            deliverFrom: {
+              reference: "Location/pharmacy-001",
+              display: "醫院中央藥局冷鏈出貨區"
+            },
+            deliverTo: {
+              reference: "Location/community-001",
+              display: "社區據點 A (幸福里長照關懷站)"
+            },
+            extension: [{
+              url: "http://example.org/fhir/StructureDefinition/target-patient",
+              valueReference: {
+                reference: "Patient/chen",
+                display: "陳阿姨"
+              }
+            }]
+          },
+          Task: null,
+          SupplyDelivery: null,
+          Communication: [],
+          ChargeItem: null,
+          Invoice: null,
+          PaymentNotice: null
+        },
+        timeline: [
+          {
+            time: t0,
+            actor: "醫院藥師 林醫師 (Practitioner/dr-lin)",
+            action: "完成處方審核與冷鏈打包，建立 SupplyRequest/supply-001",
+            badge: "SupplyRequest: active",
+            color: "teal"
+          }
+        ]
+      };
+    }
+
+    // =========================================================================
+    // 2. WORKFLOW TRANSITION ACTIONS (Steps 1 to 5)
+    // =========================================================================
+
+    // Step 1: Logistics Manager creates and assigns Task to courier (e.g., mr-lin)
+    function executeStep1() {
+      if (appState.currentStep !== 0) return;
+      const now = getTimestamp(0);
+      const courier = appState.couriers.find(c => c.id === appState.selectedCourierId) || appState.couriers[0];
+
+      appState.resources.Task = {
+        resourceType: "Task",
+        id: "task-001",
+        basedOn: [
+          {
+            reference: "SupplyRequest/supply-001",
+            display: "藥品配送申請單 #supply-001"
+          }
+        ],
+        status: "requested",
+        businessStatus: {
+          coding: [{
+            system: "http://example.org/fhir/CodeSystem/logistics-status",
+            code: "assigned",
+            display: "已指派物流員，待接單"
+          }],
+          text: "已指派任務給物流配送員"
+        },
+        intent: "order",
+        priority: "urgent",
+        code: {
+          coding: [{
+            system: "http://hl7.org/fhir/CodeSystem/task-code",
+            code: "fulfill",
+            display: "藥品冷鏈物流配送任務"
+          }],
+          text: "冷鏈藥品配送至社區據點 A"
+        },
+        description: "將陳阿姨之冷藏藥品（胰島素注射液 × 2盒）從醫院藥局配送至社區據點 A",
+        focus: {
+          reference: "SupplyRequest/supply-001",
+          display: "SupplyRequest/supply-001"
+        },
+        for: {
+          reference: "Patient/chen",
+          display: "陳阿姨"
+        },
+        authoredOn: now,
+        lastModified: now,
+        requester: {
+          reference: "Practitioner/logistics-admin",
+          display: "物流管理員"
+        },
+        owner: {
+          reference: `Practitioner/${courier.id}`,
+          display: `${courier.name} (物流配送員)`
+        },
+        location: {
+          reference: "Location/community-001",
+          display: "社區據點 A"
+        },
+        note: [
+          {
+            time: now,
+            text: "請確認冷鏈保冷箱溫度維持於 2°C - 8°C。"
+          }
+        ]
+      };
+
+      appState.currentStep = 1;
+      appState.activeResourceTab = 'Task';
+      appState.changedKeys = ['id', 'status', 'businessStatus', 'owner', 'authoredOn', 'lastModified'];
+      appState.timeline.unshift({
+        time: now,
+        actor: "物流管理員 (Practitioner/logistics-admin)",
+        action: `建立配送任務 Task/task-001 並指派給 ${courier.name} (Practitioner/${courier.id})`,
+        badge: "Task: requested",
+        color: "indigo"
+      });
+
+      showToast(`已建立 Task/task-001 並指派給 ${courier.name}！`, "success");
+      renderAll();
+    }
+
+    // Step 2: Courier (林大雄) accepts Task -> status: accepted, businessStatus: preparing + Communication
+    function executeStep2() {
+      if (appState.currentStep !== 1) return;
+      const now = getTimestamp(2);
+      const courier = appState.couriers.find(c => c.id === appState.selectedCourierId) || appState.couriers[0];
+
+      appState.resources.Task.status = "accepted";
+      appState.resources.Task.businessStatus = {
+        coding: [{
+          system: "http://example.org/fhir/CodeSystem/logistics-status",
+          code: "preparing",
+          display: "準備中"
+        }],
+        text: "preparing (準備中)"
+      };
+      appState.resources.Task.lastModified = now;
+      appState.resources.Task.note.push({
+        time: now,
+        text: `${courier.name} 已接受配送任務，正在藥局核對藥品與冷鏈設備。`
+      });
+
+      const comm1 = {
+        resourceType: "Communication",
+        id: "comm-001",
+        status: "completed",
+        category: [{
+          coding: [{
+            system: "http://terminology.hl7.org/CodeSystem/communication-category",
+            code: "notification",
+            display: "物流進度通知"
+          }]
+        }],
+        subject: {
+          reference: "Patient/chen",
+          display: "陳阿姨"
+        },
+        about: [
+          { reference: "Task/task-001" },
+          { reference: "SupplyRequest/supply-001" }
+        ],
+        sent: now,
+        sender: {
+          reference: `Practitioner/${courier.id}`,
+          display: `${courier.name} (物流配送員)`
+        },
+        recipient: [
+          {
+            reference: "Patient/chen",
+            display: "陳阿姨"
+          }
+        ],
+        payload: [
+          {
+            contentString: `【藥品物流通知】陳阿姨您好，物流員「${courier.name}」已接單，正在藥局核對您的冷藏藥品（胰島素注射液），準備為您配送至社區據點 A。`
+          }
+        ]
+      };
+
+      appState.resources.Communication.push(comm1);
+      appState.currentStep = 2;
+      appState.activeResourceTab = 'Task';
+      appState.changedKeys = ['status', 'businessStatus', 'lastModified', 'note'];
+      appState.timeline.unshift({
+        time: now,
+        actor: `物流配送員 ${courier.name} (Practitioner/${courier.id})`,
+        action: "接受任務 (Accept)，更新 Task 狀態並發送 Communication/comm-001 通知陳阿姨",
+        badge: "Task: accepted (preparing)",
+        color: "sky"
+      });
+
+      showToast(`${courier.name} 已接單，並推播通知給陳阿姨！`, "info");
+      renderAll();
+    }
+
+    // Step 3: Courier starts delivery -> status: in-progress, businessStatus: in-transit + Communication
+    function executeStep3() {
+      if (appState.currentStep !== 2) return;
+      const now = getTimestamp(8);
+      const courier = appState.couriers.find(c => c.id === appState.selectedCourierId) || appState.couriers[0];
+
+      appState.resources.Task.status = "in-progress";
+      appState.resources.Task.businessStatus = {
+        coding: [{
+          system: "http://example.org/fhir/CodeSystem/logistics-status",
+          code: "in-transit",
+          display: "配送中"
+        }],
+        text: "in-transit (配送中)"
+      };
+      appState.resources.Task.executionPeriod = {
+        start: now
+      };
+      appState.resources.Task.lastModified = now;
+      appState.resources.Task.note.push({
+        time: now,
+        text: "已完成藥局冷鏈點交（溫度 4.2°C），出發前往社區據點 A。"
+      });
+
+      const comm2 = {
+        resourceType: "Communication",
+        id: "comm-002",
+        status: "completed",
+        category: [{
+          coding: [{
+            system: "http://terminology.hl7.org/CodeSystem/communication-category",
+            code: "notification",
+            display: "物流進度通知"
+          }]
+        }],
+        subject: {
+          reference: "Patient/chen",
+          display: "陳阿姨"
+        },
+        about: [
+          { reference: "Task/task-001" }
+        ],
+        sent: now,
+        sender: {
+          reference: `Practitioner/${courier.id}`,
+          display: `${courier.name} (物流配送員)`
+        },
+        recipient: [
+          {
+            reference: "Patient/chen",
+            display: "陳阿姨"
+          }
+        ],
+        payload: [
+          {
+            contentString: `【藥品配送中】陳阿姨您好，您的藥品已從醫院藥局出發，目前正由物流員「${courier.name}」冷鏈專車配送前往「社區據點 A」途中，預計 15 分鐘內抵達。`
+          }
+        ]
+      };
+
+      appState.resources.Communication.push(comm2);
+      appState.currentStep = 3;
+      appState.activeResourceTab = 'Task';
+      appState.changedKeys = ['status', 'businessStatus', 'executionPeriod', 'lastModified'];
+      appState.timeline.unshift({
+        time: now,
+        actor: `物流配送員 ${courier.name} (Practitioner/${courier.id})`,
+        action: "取貨出發開始配送，更新 Task 為 in-progress 並發送 Communication/comm-002",
+        badge: "Task: in-progress (in-transit)",
+        color: "amber"
+      });
+
+      showToast("藥品已出發配送中，已發送動態通知給陳阿姨！", "info");
+      renderAll();
+    }
+
+    // Step 4: Courier arrives at Community Site A -> Task completed, SupplyDelivery created, Communication + ChargeItem & Invoice
+    function executeStep4() {
+      if (appState.currentStep !== 3) return;
+      const now = getTimestamp(22);
+      const courier = appState.couriers.find(c => c.id === appState.selectedCourierId) || appState.couriers[0];
+
+      // 1. Update Task
+      appState.resources.Task.status = "completed";
+      appState.resources.Task.businessStatus = {
+        coding: [{
+          system: "http://example.org/fhir/CodeSystem/logistics-status",
+          code: "delivered",
+          display: "已送達"
+        }],
+        text: "delivered (已送達社區據點)"
+      };
+      appState.resources.Task.executionPeriod.end = now;
+      appState.resources.Task.lastModified = now;
+      appState.resources.Task.output = [
+        {
+          type: { text: "產出物流交付紀錄" },
+          valueReference: {
+            reference: "SupplyDelivery/supplydelivery-001",
+            display: "SupplyDelivery/supplydelivery-001"
+          }
+        }
+      ];
+
+      // 2. Create SupplyDelivery/supplydelivery-001
+      appState.resources.SupplyDelivery = {
+        resourceType: "SupplyDelivery",
+        id: "supplydelivery-001",
+        basedOn: [
+          {
+            reference: "SupplyRequest/supply-001",
+            display: "藥品配送申請單 #supply-001"
+          }
+        ],
+        partOf: [
+          {
+            reference: "Task/task-001",
+            display: "配送任務 #task-001"
+          }
+        ],
+        status: "completed",
+        patient: {
+          reference: "Patient/chen",
+          display: "陳阿姨"
+        },
+        type: {
+          coding: [{
+            system: "http://terminology.hl7.org/CodeSystem/supply-item-type",
+            code: "medication",
+            display: "Medication (藥品)"
+          }]
+        },
+        suppliedItem: {
+          quantity: {
+            value: 2,
+            unit: "盒",
+            system: "http://unitsofmeasure.org",
+            code: "{box}"
+          },
+          itemCodeableConcept: {
+            coding: [{
+              system: "http://www.whocc.no/atc",
+              code: "A10AE04",
+              display: "Insulin Glargine 100U/mL 注射液"
+            }],
+            text: "胰島素注射液 (批號: LOT20250913 / 效期: 2027-08-31)"
+          }
+        },
+        occurrenceDateTime: now,
+        supplier: {
+          reference: `Practitioner/${courier.id}`,
+          display: `${courier.name} (物流配送員)`
+        },
+        destination: {
+          reference: "Location/community-001",
+          display: "社區據點 A (幸福里長照關懷站)"
+        },
+        extension: [
+          {
+            url: "http://example.org/fhir/StructureDefinition/medication-lot-number",
+            valueString: "LOT20250913"
+          },
+          {
+            url: "http://example.org/fhir/StructureDefinition/medication-expiration-date",
+            valueDate: "2027-08-31"
+          }
+        ]
+      };
+
+      // 3. Create Communication to Patient/chen
+      const comm3 = {
+        resourceType: "Communication",
+        id: "comm-003",
+        status: "completed",
+        category: [{
+          coding: [{
+            system: "http://terminology.hl7.org/CodeSystem/communication-category",
+            code: "notification",
+            display: "到貨領藥與繳費通知"
+          }]
+        }],
+        subject: {
+          reference: "Patient/chen",
+          display: "陳阿姨"
+        },
+        about: [
+          { reference: "SupplyDelivery/supplydelivery-001" },
+          { reference: "Invoice/invoice-001" }
+        ],
+        sent: now,
+        sender: {
+          reference: `Practitioner/${courier.id}`,
+          display: `${courier.name} (物流配送員)`
+        },
+        recipient: [
+          {
+            reference: "Patient/chen",
+            display: "陳阿姨 (或家屬代理人)"
+          }
+        ],
+        payload: [
+          {
+            contentString: "【藥品已送達通知】陳阿姨您好，您的冷藏藥品已安全送達「社區據點 A」並存入據點冷藏櫃！請攜帶健保卡前往社區據點 A 領取藥品並完成自付額與冷鏈物流費繳納（共計 NT$ 320 元）。"
+          }
+        ]
+      };
+      appState.resources.Communication.push(comm3);
+
+      // 4. Create ChargeItem & Invoice
+      appState.resources.ChargeItem = {
+        resourceType: "ChargeItem",
+        id: "chargeitem-001",
+        status: "billed",
+        code: {
+          coding: [{
+            system: "http://example.org/fhir/CodeSystem/service-charges",
+            code: "MED-COLD-DELIVERY",
+            display: "處方藥品部分負擔 + 冷鏈物流配送費"
+          }],
+          text: "藥品部分負擔 (NT$ 200) + 冷鏈物流配送費 (NT$ 120)"
+        },
+        subject: {
+          reference: "Patient/chen",
+          display: "陳阿姨"
+        },
+        context: {
+          reference: "SupplyDelivery/supplydelivery-001"
+        },
+        occurrenceDateTime: now,
+        performingOrganization: {
+          reference: "Organization/hospital-pharmacy",
+          display: "仁愛綜合醫院藥局"
+        },
+        priceOverride: {
+          value: 320,
+          currency: "TWD"
+        }
+      };
+
+      appState.resources.Invoice = {
+        resourceType: "Invoice",
+        id: "invoice-001",
+        status: "issued",
+        subject: {
+          reference: "Patient/chen",
+          display: "陳阿姨"
+        },
+        date: now,
+        lineItem: [
+          {
+            sequence: 1,
+            chargeItemReference: {
+              reference: "ChargeItem/chargeitem-001"
+            },
+            priceComponent: [
+              {
+                type: "base",
+                code: { text: "藥品部分負擔" },
+                amount: { value: 200, currency: "TWD" }
+              },
+              {
+                type: "surcharge",
+                code: { text: "冷鏈物流配送費" },
+                amount: { value: 120, currency: "TWD" }
+              }
+            ]
+          }
+        ],
+        totalNet: {
+          value: 320,
+          currency: "TWD"
+        },
+        totalGross: {
+          value: 320,
+          currency: "TWD"
+        }
+      };
+
+      appState.currentStep = 4;
+      appState.activeResourceTab = 'SupplyDelivery';
+      appState.changedKeys = ['id', 'status', 'patient', 'suppliedItem', 'occurrenceDateTime', 'supplier', 'destination', 'basedOn'];
+      appState.timeline.unshift({
+        time: now,
+        actor: `物流配送員 ${courier.name} (Practitioner/${courier.id})`,
+        action: "確認送達社區據點 A：Task 完成、自動產生 SupplyDelivery/supplydelivery-001、計費帳單 Invoice/invoice-001 與領藥通知",
+        badge: "SupplyDelivery: completed",
+        color: "emerald"
+      });
+
+      showToast("已送達社區據點 A！自動產生 SupplyDelivery 與帳單通知。", "success");
+      renderAll();
+    }
+
+    // Step 5: Patient (陳阿姨) picks up medication & pays at Community Site A
+    function executeStep5() {
+      if (appState.currentStep !== 4) return;
+      const now = getTimestamp(45);
+
+      // 1. Update SupplyDelivery with receiver and note
+      appState.resources.SupplyDelivery.receiver = [
+        {
+          reference: "Patient/chen",
+          display: "陳阿姨 (本人親領簽收)"
+        }
+      ];
+      appState.resources.SupplyDelivery.note = [
+        {
+          time: now,
+          text: "藥品已交給病人，請依醫囑服用"
+        }
+      ];
+
+      // 2. Update Invoice to balanced & create PaymentNotice
+      appState.resources.Invoice.status = "balanced";
+      appState.resources.PaymentNotice = {
+        resourceType: "PaymentNotice",
+        id: "paymentnotice-001",
+        status: "active",
+        request: {
+          reference: "Invoice/invoice-001",
+          display: "藥品與冷鏈物流帳單 #invoice-001"
+        },
+        created: now,
+        provider: {
+          reference: "Location/community-001",
+          display: "社區據點 A 代收櫃檯"
+        },
+        payment: {
+          reference: "PaymentReconciliation/pay-001",
+          display: "現場電子支付完成 (NT$ 320)"
+        },
+        paymentDate: now.split('T')[0],
+        recipient: {
+          reference: "Organization/hospital-pharmacy",
+          display: "仁愛綜合醫院藥局"
+        },
+        amount: {
+          value: 320,
+          currency: "TWD"
+        },
+        paymentStatus: {
+          coding: [{
+            system: "http://terminology.hl7.org/CodeSystem/paymentstatus",
+            code: "completed",
+            display: "Completed (已完成付款)"
+          }]
+        }
+      };
+
+      // 3. Send multi-party Communication (to Patient/chen, Dr. Chang, and Pharmacist Dr. Lin)
+      const comm4Patient = {
+        resourceType: "Communication",
+        id: "comm-004-patient",
+        status: "completed",
+        category: [{
+          coding: [{
+            system: "http://terminology.hl7.org/CodeSystem/communication-category",
+            code: "instruction",
+            display: "用藥衛教指導"
+          }]
+        }],
+        subject: {
+          reference: "Patient/chen",
+          display: "陳阿姨"
+        },
+        about: [
+          { reference: "SupplyDelivery/supplydelivery-001" },
+          { reference: "PaymentNotice/paymentnotice-001" }
+        ],
+        sent: now,
+        sender: {
+          reference: "Location/community-001",
+          display: "社區據點 A 藥事服務站"
+        },
+        recipient: [
+          {
+            reference: "Patient/chen",
+            display: "陳阿姨"
+          }
+        ],
+        payload: [
+          {
+            contentString: "【領藥與付款完成】陳阿姨您好，您已於社區據點 A 完成領藥與繳費（NT$ 320）。提醒您：胰島素注射液請存放於家用冰箱冷藏（2~8°C），切勿冷凍，並請依照醫囑定時定量服用與施打！"
+          }
+        ]
+      };
+
+      const comm5Clinicians = {
+        resourceType: "Communication",
+        id: "comm-005-clinicians",
+        status: "completed",
+        category: [{
+          coding: [{
+            system: "http://terminology.hl7.org/CodeSystem/communication-category",
+            code: "notification",
+            display: "醫療團隊結案回報"
+          }]
+        }],
+        subject: {
+          reference: "Patient/chen",
+          display: "陳阿姨"
+        },
+        about: [
+          { reference: "SupplyDelivery/supplydelivery-001" },
+          { reference: "SupplyRequest/supply-001" }
+        ],
+        sent: now,
+        sender: {
+          reference: "Location/community-001",
+          display: "社區據點 A 系統自動回報"
+        },
+        recipient: [
+          {
+            reference: "Practitioner/dr-chang",
+            display: "張醫師 (主治醫師)"
+          },
+          {
+            reference: "Practitioner/dr-lin",
+            display: "林醫師 (審核藥師)"
+          }
+        ],
+        payload: [
+          {
+            contentString: "【病人領藥完成回報】病人陳阿姨（Patient/chen）已於社區據點 A 親領處方藥品（SupplyDelivery/supplydelivery-001，批號 LOT20250913）並完成付款，請醫師與藥師知悉。"
+          }
+        ]
+      };
+
+      appState.resources.Communication.push(comm4Patient, comm5Clinicians);
+      appState.currentStep = 5;
+      appState.activeResourceTab = 'SupplyDelivery';
+      appState.changedKeys = ['receiver', 'note'];
+      appState.timeline.unshift({
+        time: now,
+        actor: "陳阿姨 (Patient/chen) @ 社區據點 A",
+        action: "完成領藥簽收與付款：更新 SupplyDelivery.receiver、產生 PaymentNotice (completed)，並通知陳阿姨、張醫師與林醫師",
+        badge: "全流程閉環完成",
+        color: "teal"
+      });
+
+      showToast("全流程完成！陳阿姨已領藥付款，並已同步通知張醫師與林醫師。", "success");
+      renderAll();
+    }
+
+    // =========================================================================
+    // 3. COURIER REGISTRATION & VERIFICATION MODAL LOGIC
+    // =========================================================================
+
+    function buildPractitionerBundle(courier) {
+      return {
+        resourceType: "Bundle",
+        type: "transaction",
+        entry: [
+          {
+            resource: {
+              resourceType: "Practitioner",
+              id: courier.id,
+              active: courier.active,
+              identifier: [{
+                system: "http://example.org/fhir/courier-id",
+                value: courier.identifier
+              }],
+              name: [{
+                use: "official",
+                text: courier.name
+              }],
+              qualification: [{
+                code: {
+                  coding: [{
+                    system: "http://example.org/fhir/CodeSystem/logistics-qualification",
+                    code: courier.qualification,
+                    display: courier.qualificationDisplay
+                  }]
+                }
+              }]
+            }
+          },
+          {
+            resource: {
+              resourceType: "PractitionerRole",
+              id: `role-${courier.id}`,
+              active: true,
+              practitioner: {
+                reference: `Practitioner/${courier.id}`,
+                display: courier.name
+              },
+              organization: {
+                reference: "Organization/med-logistics",
+                display: "醫藥冷鏈物流中心"
+              },
+              code: [{
+                coding: [{
+                  system: "http://example.org/fhir/CodeSystem/role",
+                  code: "medical-courier",
+                  display: "醫藥冷鏈物流配送員"
+                }]
+              }],
+              location: [{
+                reference: "Location/community-001",
+                display: "社區據點 A 配送責任區"
+              }]
+            }
+          }
+        ]
+      };
+    }
+
+    function openStaffModal() {
+      const modal = document.getElementById('staff-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      renderCourierModal();
+    }
+
+    function closeStaffModal() {
+      const modal = document.getElementById('staff-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function approveNewCourier() {
+      const nameInput = document.getElementById('new-courier-name');
+      const idInput = document.getElementById('new-courier-id');
+      const qualSelect = document.getElementById('new-courier-qual');
+
+      const name = nameInput.value.trim();
+      const id = idInput.value.trim().replace(/[^a-zA-Z0-9-]/g, '');
+      const qual = qualSelect.value;
+      const qualDisplay = qualSelect.options[qualSelect.selectedIndex].text;
+
+      if (!name || !id) {
+        showToast("請輸入完整的物流員姓名與編號！", "error");
+        return;
+      }
+
+      const existingIdx = appState.couriers.findIndex(c => c.id === id);
+      const newCourier = {
+        id,
+        name,
+        identifier: `LOG-2025-00${appState.couriers.length + 1}`,
+        qualification: qual,
+        qualificationDisplay: qualDisplay,
+        active: true
+      };
+
+      if (existingIdx >= 0) {
+        appState.couriers[existingIdx] = newCourier;
+      } else {
+        appState.couriers.push(newCourier);
+      }
+
+      appState.selectedCourierId = id;
+      appState.timeline.unshift({
+        time: getTimestamp(0),
+        actor: "物流管理員 (Practitioner/logistics-admin)",
+        action: `審核通過新物流員「${name}」，產生 Practitioner/${id} 與 PractitionerRole/role-${id}`,
+        badge: "Practitioner Approved",
+        color: "teal"
+      });
+
+      showToast(`已審核通過物流員「${name}」並產生 FHIR 資源！`, "success");
+      renderCourierModal();
+      renderAll();
+    }
+
+    function selectActiveCourier(id) {
+      appState.selectedCourierId = id;
+      const c = appState.couriers.find(x => x.id === id);
+      if (c && appState.resources.Task && appState.currentStep === 1) {
+        appState.resources.Task.owner = {
+          reference: `Practitioner/${c.id}`,
+          display: `${c.name} (物流配送員)`
+        };
+      }
+      renderCourierModal();
+      renderAll();
+      showToast(`已切換指派物流員為：${c.name}`, "info");
+    }
+
+    function renderCourierModal() {
+      const listEl = document.getElementById('courier-list');
+      listEl.innerHTML = appState.couriers.map(c => {
+        const isSelected = c.id === appState.selectedCourierId;
+        return `
+          <div class="flex items-center justify-between p-3 rounded-xl border ${isSelected ? 'border-teal-500 bg-teal-50/60' : 'border-slate-200 bg-white'}">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-sm text-slate-800">${c.name}</span>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600">Practitioner/${c.id}</span>
+                <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">已認證</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">${c.qualificationDisplay} • 證號 ${c.identifier}</p>
+            </div>
+            <button onclick="selectActiveCourier('${c.id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${isSelected ? 'bg-teal-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}">
+              ${isSelected ? '目前指派對象' : '設為派單對象'}
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      const activeCourier = appState.couriers.find(c => c.id === appState.selectedCourierId) || appState.couriers[0];
+      document.getElementById('staff-json-preview').textContent = JSON.stringify(buildPractitionerBundle(activeCourier), null, 2);
+    }
+
+    // =========================================================================
+    // 4. UI RENDERING FUNCTIONS
+    // =========================================================================
+
+    function setRoleView(role) {
+      appState.roleView = role;
+      document.querySelectorAll('.role-tab').forEach(btn => {
+        if (btn.dataset.role === role) {
+          btn.className = "role-tab flex-1 min-w-[130px] flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer bg-teal-600 text-white shadow-sm";
+        } else {
+          btn.className = "role-tab flex-1 min-w-[130px] flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer text-slate-600 hover:bg-slate-100";
+        }
+      });
+      renderActionConsole();
+    }
+
+    function selectResourceTab(resName) {
+      appState.activeResourceTab = resName;
+      document.querySelectorAll('.res-tab').forEach(btn => {
+        if (btn.dataset.res === resName) {
+          btn.className = "res-tab px-3 py-2 rounded-t-xl text-xs font-semibold border-b-2 border-teal-600 text-teal-700 bg-white transition cursor-pointer";
+        } else {
+          btn.className = "res-tab px-3 py-2 rounded-t-xl text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition cursor-pointer";
+        }
+      });
+      renderJsonViewer();
+    }
+
+    function renderStepper() {
+      const grid = document.getElementById('stepper-grid');
+      grid.innerHTML = STEP_DEFINITIONS.map(item => {
+        const isDone = item.step < appState.currentStep || (item.step === 5 && appState.currentStep === 5);
+        const isCurrent = item.step === appState.currentStep && appState.currentStep < 5;
+
+        let cardClass = "border-slate-200 bg-slate-50/60 text-slate-400";
+        let badgeClass = "bg-slate-200 text-slate-500";
+        let icon = item.step;
+
+        if (isDone) {
+          cardClass = "border-teal-200 bg-teal-50/70 text-teal-900";
+          badgeClass = "bg-teal-600 text-white";
+          icon = "✓";
+        } else if (isCurrent) {
+          cardClass = "border-amber-400 bg-amber-50/90 text-amber-950 ring-2 ring-amber-400/30";
+          badgeClass = "bg-amber-500 text-white";
+        }
+
+        return `
+          <div class="p-3 rounded-xl border ${cardClass} transition-all flex flex-col justify-between">
+            <div class="flex items-center justify-between gap-1 mb-1.5">
+              <span class="w-5 h-5 rounded-full ${badgeClass} text-[11px] font-bold flex items-center justify-center shrink-0">${icon}</span>
+              <span class="text-[11px] font-medium truncate opacity-80">${item.role}</span>
+            </div>
+            <div class="font-bold text-xs leading-snug">${item.title}</div>
+            <div class="text-[11px] font-mono mt-1 opacity-75 truncate">${item.short}</div>
+          </div>
+        `;
+      }).join('');
+
+      const statusBadge = document.getElementById('current-status-badge');
+      const statusLabels = [
+        "步驟 0：藥局已審核打包 (SupplyRequest active)",
+        "步驟 1：物流已派單待接單 (Task requested)",
+        "步驟 2：物流員已接單準備中 (Task accepted)",
+        "步驟 3：冷鏈藥品配送中 (Task in-progress)",
+        "步驟 4：已送達社區據點 A (SupplyDelivery completed)",
+        "步驟 5：病人已領藥並完成付款 (流程全數完成)"
+      ];
+      statusBadge.innerHTML = `
+        <span class="w-2 h-2 rounded-full ${appState.currentStep === 5 ? 'bg-teal-500' : 'bg-amber-500 animate-pulse'}"></span>
+        ${statusLabels[appState.currentStep]}
+      `;
+      if (appState.currentStep === 5) {
+        statusBadge.className = "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200 self-start sm:self-auto";
+      } else {
+        statusBadge.className = "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 self-start sm:self-auto";
+      }
+    }
+
+    function renderActionConsole() {
+      const body = document.getElementById('action-console-body');
+      const titleEl = document.getElementById('console-title');
+      const subEl = document.getElementById('console-subtitle');
+      const iconEl = document.getElementById('console-role-icon');
+      const stepBadge = document.getElementById('step-badge');
+
+      const courier = appState.couriers.find(c => c.id === appState.selectedCourierId) || appState.couriers[0];
+      document.getElementById('assigned-courier-display').textContent = `${courier.name} (Practitioner/${courier.id})`;
+      stepBadge.textContent = `Step ${appState.currentStep}/5`;
+
+      const role = appState.roleView;
+      const step = appState.currentStep;
+
+      // Update header based on roleView
+      const roleMeta = {
+        all: { icon: "🌐", title: "全景整合操作台 (依序推進關卡)", sub: "直接執行當前關卡的下一步驟，觀察 FHIR 資源變化" },
+        pharmacist: { icon: "💊", title: "醫院藥師視角 — 林醫師 (Practitioner/dr-lin)", sub: "負責處方審核、冷鏈包裝與確認最終病人領藥回報" },
+        dispatcher: { icon: "📋", title: "物流管理員視角 (Logistics Dispatcher)", sub: "檢視待配送 SupplyRequest、審核物流員並指派 Task" },
+        courier: { icon: "🚚", title: `物流配送員視角 — ${courier.name} (Practitioner/${courier.id})`, sub: "執行接單 (Accept)、出發配送 (Start) 與送達簽收 (Complete)" },
+        patient: { icon: "👵", title: "社區據點 A / 病人陳阿姨 (Patient/chen)", sub: "接收手機推播通知、前往據點領藥並完成費用支付" }
+      };
+      iconEl.textContent = roleMeta[role].icon;
+      titleEl.textContent = roleMeta[role].title;
+      subEl.textContent = roleMeta[role].sub;
+
+      // Render role-specific hints + primary action button for the current step
+      let html = "";
+
+      // Role filter notice if viewing a role that isn't the active actor for the current step
+      const stepOwnerRole = ['dispatcher', 'courier', 'courier', 'courier', 'patient', 'done'][step];
+      if (role !== 'all' && step < 5 && role !== stepOwnerRole) {
+        const ownerNames = {
+          dispatcher: "物流管理員",
+          courier: `物流配送員 (${courier.name})`,
+          patient: "社區據點 / 病人陳阿姨"
+        };
+        html += `
+          <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2">
+            <div class="font-bold flex items-center gap-1.5">
+              <span>⏳</span> 目前等待「${ownerNames[stepOwnerRole]}」執行第 ${step + 1} 步操作
+            </div>
+            <p class="text-amber-800 leading-relaxed">您目前正在檢視「${roleMeta[role].title.split('—')[0].trim()}」的專屬視角。您可以切換至對應角色分頁，或直接點擊下方快速推進按鈕繼續模擬：</p>
+          </div>
+        `;
+      }
+
+      if (step === 0) {
+        html += `
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-slate-800">待派單申請：SupplyRequest/supply-001</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono font-semibold">status: active</span>
+              </div>
+              <p class="text-slate-600">藥師 <strong>林醫師 (dr-lin)</strong> 已完成處方審核與冷藏打包。請指派物流配送員建立 <code class="font-mono text-teal-700">Task/task-001</code>。</p>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 p-3 rounded-xl bg-indigo-50/60 border border-indigo-200 text-xs">
+              <div>
+                <span class="text-slate-500 block">指派物流配送員 (Task.owner)</span>
+                <span class="font-bold text-indigo-950">${courier.name} (Practitioner/${courier.id})</span>
+              </div>
+              <button onclick="openStaffModal()" class="px-2.5 py-1.5 rounded-lg bg-white border border-indigo-200 text-indigo-700 font-semibold hover:bg-indigo-100 cursor-pointer">
+                更換 / 審核人員
+              </button>
+            </div>
+
+            <button onclick="executeStep1()" class="w-full py-3.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-[0.99] text-white font-bold text-sm shadow-md shadow-teal-600/20 transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>📋 步驟 1：建立並指派 Task 給 ${courier.name}</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+            </button>
+          </div>
+        `;
+      } else if (step === 1) {
+        html += `
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200 text-xs space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-indigo-950">新配送任務：Task/task-001</span>
+                <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-mono font-semibold">status: requested</span>
+              </div>
+              <p class="text-indigo-900">系統已指派任務給物流員 <strong>${courier.name}</strong>。請確認冷鏈保冷箱設備並接受此配送任務。</p>
+            </div>
+
+            <button onclick="executeStep2()" class="w-full py-3.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 active:scale-[0.99] text-white font-bold text-sm shadow-md shadow-sky-600/20 transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>✋ 步驟 2：${courier.name} 接受任務 (Accept Task)</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+            </button>
+          </div>
+        `;
+      } else if (step === 2) {
+        html += `
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-xl bg-sky-50/70 border border-sky-200 text-xs space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-sky-950">任務狀態：preparing (準備中)</span>
+                <span class="px-2 py-0.5 rounded bg-sky-100 text-sky-800 font-mono font-semibold">status: accepted</span>
+              </div>
+              <p class="text-sky-900">已通知陳阿姨「物流員已接單」。請至醫院藥局冷鏈出貨區完成點交並出發前往社區據點 A。</p>
+            </div>
+
+            <button onclick="executeStep3()" class="w-full py-3.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-[0.99] text-white font-bold text-sm shadow-md shadow-amber-600/20 transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>🚚 步驟 3：取貨出發 — 開始配送 (Start Delivery)</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+            </button>
+          </div>
+        `;
+      } else if (step === 3) {
+        html += `
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-amber-950">任務狀態：in-transit (冷鏈配送中)</span>
+                <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-mono font-semibold">status: in-progress</span>
+              </div>
+              <p class="text-amber-900">冷鏈專車已抵達 <strong>社區據點 A (Location/community-001)</strong>。確認送達後將自動產生 <code class="font-mono font-bold">SupplyDelivery</code>、帳單與領藥通知。</p>
+            </div>
+
+            <button onclick="executeStep4()" class="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-sm shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>📦 步驟 4：確認送達社區據點 (Complete Delivery)</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </button>
+          </div>
+        `;
+      } else if (step === 4) {
+        html += `
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-emerald-950">藥品已送達社區據點 A</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono font-semibold">SupplyDelivery: completed</span>
+              </div>
+              <p class="text-emerald-900">陳阿姨已收到推播通知前往社區據點 A。請模擬病人核對身分、領取藥品並完成 <strong>NT$ 320</strong> 費用支付。</p>
+            </div>
+
+            <button onclick="executeStep5()" class="w-full py-3.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-[0.99] text-white font-bold text-sm shadow-md shadow-teal-600/20 transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>👵 步驟 5：陳阿姨完成領藥與付款 (簽收 & PaymentNotice)</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </button>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="space-y-3">
+            <div class="p-4 rounded-xl bg-teal-50 border border-teal-200 text-xs space-y-2">
+              <div class="flex items-center gap-2 text-teal-900 font-bold text-sm">
+                <span class="text-lg">🎉</span> FHIR 藥品物流配送全流程已圓滿完成！
+              </div>
+              <ul class="space-y-1 text-teal-800 list-disc list-inside">
+                <li><strong>SupplyDelivery/supplydelivery-001</strong> 已更新 <code class="font-mono">receiver: Patient/chen</code></li>
+                <li><strong>PaymentNotice/paymentnotice-001</strong> 付款完成，帳單狀態為 <code class="font-mono">balanced</code></li>
+                <li>已發送 <strong>Communication</strong> 提醒陳阿姨依醫囑服用，並同步通知張醫師與林醫師</li>
+              </ul>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="downloadBundle()" class="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition cursor-pointer">
+                ⬇ 下載完整 FHIR Bundle
+              </button>
+              <button onclick="resetSimulation()" class="py-2.5 px-3 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold text-xs transition cursor-pointer">
+                ↻ 重新執行模擬
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      body.innerHTML = html;
+    }
+
+    function renderPatientPhone() {
+      const chatStream = document.getElementById('patient-chat-stream');
+      const countBadge = document.getElementById('comm-count-badge');
+
+      // Filter communications addressed to Patient/chen
+      const patientComms = appState.resources.Communication.filter(c =>
+        c.recipient && c.recipient.some(r => r.reference === "Patient/chen")
+      );
+
+      countBadge.textContent = `${patientComms.length} 則訊息`;
+
+      if (patientComms.length === 0) {
+        chatStream.innerHTML = `
+          <div class="h-full flex flex-col items-center justify-center text-center px-4 text-slate-700/80">
+            <div class="w-12 h-12 rounded-2xl bg-white/60 flex items-center justify-center text-2xl mb-2 shadow-2xs">📱</div>
+            <p class="text-xs font-bold text-slate-800">尚無推播訊息</p>
+            <p class="text-[11px] text-slate-700 mt-1">當物流員林大雄接單（步驟 2）起，系統將透過 FHIR Communication 即時推播配送進度至陳阿姨手機。</p>
+          </div>
+        `;
+        return;
+      }
+
+      chatStream.innerHTML = patientComms.map(comm => {
+        const timeStr = comm.sent.split('T')[1].slice(0, 5);
+        return `
+          <div class="flex items-start gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div class="w-7 h-7 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 shadow-xs">藥</div>
+            <div class="max-w-[85%]">
+              <div class="text-[10px] text-slate-800 font-semibold mb-0.5 flex items-center gap-1.5">
+                <span>${comm.sender.display}</span>
+                <span class="font-mono text-[9px] bg-white/60 px-1 rounded text-slate-600">${comm.id}</span>
+              </div>
+              <div class="bg-white text-slate-800 p-2.5 rounded-2xl rounded-tl-xs text-xs leading-relaxed shadow-xs">
+                ${comm.payload[0].contentString}
+              </div>
+              <div class="text-[10px] text-slate-700 mt-0.5 text-right">${timeStr} 已讀</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      chatStream.scrollTop = chatStream.scrollHeight;
+    }
+
+    function renderJsonViewer() {
+      const tab = appState.activeResourceTab;
+      const endpointEl = document.getElementById('json-viewer-endpoint');
+      const codeEl = document.getElementById('json-code-output');
+
+      // Update tab badges
+      const taskBadge = document.getElementById('tab-badge-Task');
+      if (appState.resources.Task) {
+        taskBadge.textContent = appState.resources.Task.status;
+        taskBadge.className = "ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-teal-100 text-teal-800 font-mono";
+      } else {
+        taskBadge.textContent = "未建立";
+        taskBadge.className = "ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-600";
+      }
+
+      const sdBadge = document.getElementById('tab-badge-SupplyDelivery');
+      if (appState.resources.SupplyDelivery) {
+        sdBadge.textContent = appState.resources.SupplyDelivery.status;
+        sdBadge.className = "ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-mono";
+      } else {
+        sdBadge.textContent = "未建立";
+        sdBadge.className = "ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-600";
+      }
+
+      const commBadge = document.getElementById('tab-badge-Communication');
+      commBadge.textContent = appState.resources.Communication.length;
+      if (appState.resources.Communication.length > 0) {
+        commBadge.className = "ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-sky-100 text-sky-800 font-mono";
+      } else {
+        commBadge.className = "ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-600";
+      }
+
+      let targetData = null;
+      if (tab === 'SupplyRequest') {
+        endpointEl.textContent = "GET /fhir/SupplyRequest/supply-001";
+        targetData = appState.resources.SupplyRequest;
+      } else if (tab === 'Task') {
+        endpointEl.textContent = "GET /fhir/Task/task-001";
+        targetData = appState.resources.Task || { info: "尚未建立 Task 資源，請先執行「步驟 1：建立並指派 Task」。" };
+      } else if (tab === 'SupplyDelivery') {
+        endpointEl.textContent = "GET /fhir/SupplyDelivery/supplydelivery-001";
+        targetData = appState.resources.SupplyDelivery || { info: "尚未建立 SupplyDelivery 資源，請於物流員送達社區據點（步驟 4）時自動產生。" };
+      } else if (tab === 'Communication') {
+        endpointEl.textContent = `GET /fhir/Communication?subject=Patient/chen (${appState.resources.Communication.length} entries)`;
+        targetData = {
+          resourceType: "Bundle",
+          type: "searchset",
+          total: appState.resources.Communication.length,
+          entry: appState.resources.Communication.map(r => ({ resource: r }))
+        };
+      } else if (tab === 'Billing') {
+        endpointEl.textContent = "GET /fhir/Bundle/billing-chen-001 (ChargeItem / Invoice / PaymentNotice)";
+        if (!appState.resources.ChargeItem) {
+          targetData = { info: "尚未產生計費與付款資源，將於「步驟 4（送達社區據點）」產生 ChargeItem 與 Invoice，並於「步驟 5」產生 PaymentNotice。" };
+        } else {
+          targetData = {
+            resourceType: "Bundle",
+            type: "collection",
+            entry: [
+              { resource: appState.resources.ChargeItem },
+              { resource: appState.resources.Invoice },
+              ...(appState.resources.PaymentNotice ? [{ resource: appState.resources.PaymentNotice }] : [])
+            ]
+          };
+        }
+      }
+
+      // Syntax highlight JSON + highlight changed fields
+      const rawJson = JSON.stringify(targetData, null, 2);
+      const escaped = rawJson
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      const lines = escaped.split('\n');
+      const highlightedLines = lines.map(line => {
+        const isChanged = appState.changedKeys.some(k => line.includes(`"${k}":`));
+        // Colorize keys, strings, numbers, booleans
+        let colored = line
+          .replace(/^(\s*)("[^"]+")(:)/, '$1<span class="text-sky-300">$2</span>$3')
+          .replace(/:\s*("[^"]*")/g, ': <span class="text-amber-200">$1</span>')
+          .replace(/:\s*(\d+)/g, ': <span class="text-emerald-300">$1</span>')
+          .replace(/:\s*(true|false|null)/g, ': <span class="text-purple-300">$1</span>');
+
+        if (isChanged && !targetData.info) {
+          return `<span class="json-changed-line">${colored}</span>`;
+        }
+        return colored;
+      });
+
+      codeEl.innerHTML = highlightedLines.join('\n');
+    }
+
+    function renderTimeline() {
+      const container = document.getElementById('audit-timeline');
+      const colorMap = {
+        teal: "bg-teal-100 text-teal-800 border-teal-200",
+        indigo: "bg-indigo-100 text-indigo-800 border-indigo-200",
+        sky: "bg-sky-100 text-sky-800 border-sky-200",
+        amber: "bg-amber-100 text-amber-800 border-amber-200",
+        emerald: "bg-emerald-100 text-emerald-800 border-emerald-200"
+      };
+
+      container.innerHTML = appState.timeline.map((item, idx) => {
+        const timeShort = item.time.split('T')[1].slice(0, 8);
+        const badgeStyle = colorMap[item.color] || colorMap.teal;
+        return `
+          <div class="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+            <div class="mt-0.5 w-2.5 h-2.5 rounded-full ${idx === 0 ? 'bg-teal-500 ring-4 ring-teal-500/20' : 'bg-slate-300'} shrink-0"></div>
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center justify-between gap-1.5">
+                <span class="text-xs font-bold text-slate-800">${item.actor}</span>
+                <div class="flex items-center gap-1.5">
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold border ${badgeStyle}">${item.badge}</span>
+                  <span class="text-[11px] font-mono text-slate-400">${timeShort}</span>
+                </div>
+              </div>
+              <p class="text-xs text-slate-600 mt-1 leading-relaxed">${item.action}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderAll() {
+      renderStepper();
+      renderActionConsole();
+      renderPatientPhone();
+      renderJsonViewer();
+      renderTimeline();
+    }
+
+    // =========================================================================
+    // 5. UTILITY FUNCTIONS (Copy, Download Bundle, Reset, Toast)
+    // =========================================================================
+
+    function getCurrentTabObject() {
+      const tab = appState.activeResourceTab;
+      if (tab === 'SupplyRequest') return appState.resources.SupplyRequest;
+      if (tab === 'Task') return appState.resources.Task || {};
+      if (tab === 'SupplyDelivery') return appState.resources.SupplyDelivery || {};
+      if (tab === 'Communication') return appState.resources.Communication;
+      if (tab === 'Billing') {
+        return {
+          ChargeItem: appState.resources.ChargeItem,
+          Invoice: appState.resources.Invoice,
+          PaymentNotice: appState.resources.PaymentNotice
+        };
+      }
+      return {};
+    }
+
+    function copyTextFallback(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showToast("已成功複製 JSON 至剪貼簿！", "success");
+      } catch (err) {
+        showToast("複製失敗，請手動選取複製。", "error");
+      }
+      document.body.removeChild(textarea);
+    }
+
+    function copyCurrentJson() {
+      const jsonStr = JSON.stringify(getCurrentTabObject(), null, 2);
+      copyTextFallback(jsonStr);
+    }
+
+    function copyStaffJson() {
+      const activeCourier = appState.couriers.find(c => c.id === appState.selectedCourierId) || appState.couriers[0];
+      copyTextFallback(JSON.stringify(buildPractitionerBundle(activeCourier), null, 2));
+    }
+
+    function downloadBundle() {
+      const activeCourier = appState.couriers.find(c => c.id === appState.selectedCourierId) || appState.couriers[0];
+      const staffEntries = buildPractitionerBundle(activeCourier).entry;
+
+      const entries = [
+        ...staffEntries,
+        { resource: appState.resources.SupplyRequest },
+        ...(appState.resources.Task ? [{ resource: appState.resources.Task }] : []),
+        ...(appState.resources.SupplyDelivery ? [{ resource: appState.resources.SupplyDelivery }] : []),
+        ...appState.resources.Communication.map(c => ({ resource: c })),
+        ...(appState.resources.ChargeItem ? [{ resource: appState.resources.ChargeItem }] : []),
+        ...(appState.resources.Invoice ? [{ resource: appState.resources.Invoice }] : []),
+        ...(appState.resources.PaymentNotice ? [{ resource: appState.resources.PaymentNotice }] : [])
+      ];
+
+      const fullBundle = {
+        resourceType: "Bundle",
+        id: "fhir-med-logistics-bundle-001",
+        type: "collection",
+        timestamp: getTimestamp(0),
+        total: entries.length,
+        entry: entries
+      };
+
+      const blob = new Blob([JSON.stringify(fullBundle, null, 2)], { type: "application/fhir+json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fhir-logistics-bundle-step${appState.currentStep}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast(`已匯出完整 FHIR Bundle (共 ${entries.length} 筆資源)！`, "success");
+    }
+
+    function resetSimulation() {
+      initInitialState();
+      setRoleView('all');
+      selectResourceTab('SupplyRequest');
+      renderAll();
+      showToast("已重置模擬至初始狀態（步驟 0）！", "info");
+    }
+
+    function showToast(message, type = "info") {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const styles = {
+        success: "bg-slate-900 text-white border-l-4 border-emerald-400",
+        info: "bg-slate-900 text-white border-l-4 border-sky-400",
+        error: "bg-rose-950 text-white border-l-4 border-rose-400"
+      };
+      toast.className = `pointer-events-auto px-4 py-3 rounded-xl shadow-lg text-xs sm:text-sm font-medium flex items-center justify-between gap-3 transition-all duration-300 ${styles[type] || styles.info}`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    // Initialize App on Load
+    window.addEventListener('DOMContentLoaded', () => {
+      initInitialState();
+      renderAll();
+    });
+  </script>
+</body>
+</html>
